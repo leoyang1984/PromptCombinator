@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提示词生成器</title>
+    <style>
+        :root {
+            --primary-color: #0071e3;
+            --primary-hover: #0077ed;
+            --bg-color: #ffffff;
+            --text-color: #1d1d1f;
+            --secondary-bg: #f5f5f7;
+            --border-color: #d2d2d7;
+            --success-color: #34c759;
+            --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            --warning-color: #ff9f0a;
+            --danger-color: #ff3b30;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #1d1d1f;
+                --text-color: #f5f5f7;
+                --secondary-bg: #2c2c2e;
+                --border-color: #424245;
+                --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #0071e3, #00c7ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-color);
+            opacity: 0.8;
+            font-weight: 400;
+            margin-bottom: 0.5rem;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+            overflow-x: auto;
+            padding-bottom: 1px;
+            gap: 1rem;
+        }
+
+        .tab {
+            padding: 0.8rem 1.2rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            font-weight: 500;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+
+        .tab:hover {
+            color: var(--primary-color);
+        }
+
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 968px) {
+            .app-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background-color: var(--secondary-bg);
+            border-radius: 14px;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        textarea, .preview {
+            width: 100%;
+            resize: none;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1rem;
+            font-size: 1rem;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            flex-grow: 1;
+            min-height: 300px;
+            margin-bottom: 1rem;
+            line-height: 1.6;
+            font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+        }
+
+        .preview {
+            white-space: pre-wrap;
+            overflow-y: auto;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .template-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+
+        select {
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 1rem;
+            flex-grow: 1;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1rem;
+            min-width: 180px;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .button-full {
+            width: 100%;
+        }
+
+        .file-input-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .file-input {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .danger-button {
+            background-color: var(--danger-color);
+        }
+
+        .danger-button:hover {
+            background-color: #ff2920;
+        }
+
+        .warning-button {
+            background-color: var(--warning-color);
+        }
+
+        .warning-button:hover {
+            background-color: #f5940a;
+        }
+
+        .copy-success {
+            background-color: var(--success-color);
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .alert-success {
+            background-color: rgba(52, 199, 89, 0.1);
+            border: 1px solid rgba(52, 199, 89, 0.3);
+            color: var(--success-color);
+        }
+
+        .alert-info {
+            background-color: rgba(0, 122, 255, 0.1);
+            border: 1px solid rgba(0, 122, 255, 0.3);
+            color: var(--primary-color);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        footer {
+            margin-top: 3rem;
+            text-align: center;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        /* Toggle Switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            margin-bottom: 1rem;
+        }
+
+        .toggle-label {
+            margin-right: 0.5rem;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--secondary-bg);
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 2px;
+            bottom: 2px;
+            background-color: var(--primary-color);
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--border-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* 模态框样式 */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal-backdrop.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background-color: var(--bg-color);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-backdrop.show .modal {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-color);
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background-color: var(--secondary-bg);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        /* 加载指示器 */
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .template-info {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        /* 标签样式 */
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-right: 0.25rem;
+            margin-bottom: 0.25rem;
+            background-color: rgba(0, 113, 227, 0.1);
+            color: var(--primary-color);
+            border: 1px solid rgba(0, 113, 227, 0.2);
+        }
+
+        .divider {
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 1.5rem 0;
+        }
+
+        .template-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .template-item {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            background-color: var(--secondary-bg);
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .template-item:hover {
+            background-color: rgba(0, 113, 227, 0.1);
+        }
+
+        .template-item.active {
+            background-color: rgba(0, 113, 227, 0.2);
+            border-left: 3px solid var(--primary-color);
+        }
+
+        /* 选项卡内容 */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* 模板管理样式 */
+        .template-file-card {
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--bg-color);
+        }
+
+        .template-file-info {
+            flex: 1;
+        }
+
+        .template-file-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            word-break: break-all;
+        }
+
+        .template-file-meta {
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+
+        .template-file-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            opacity: 0.7;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state-text {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>提示词生成器</h1>
+            <p class="subtitle">将你的内容与预设模板组合，快速生成高效提示词</p>
+        </header>
+
+        <div class="toggle-container">
+            <span class="toggle-label">深色模式</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="theme-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="generator">生成器</div>
+            <div class="tab" data-tab="template-manager">模板管理</div>
+        </div>
+
+        <div id="generator-tab" class="tab-content active">
+            <!-- 生成器功能 -->
+            <div class="app-container">
+                <div class="card fade-in">
+                    <div class="card-title">
+                        <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                        输入内容
+                    </div>
+                    <textarea id="content-input" placeholder="请在此输入你的内容，例如文章、笔记或数据..."></textarea>
+
+                    <div class="template-controls">
+                        <span>选择模板：</span>
+                        <select id="template-select">
+                            <option value="none">请选择模板</option>
+                            <optgroup label="内置模板">
+                                <option value="web-design">网页设计模板</option>
+                                <option value="data-analysis">数据分析模板</option>
+                                <option value="content-writing">内容创作模板</option>
+                                <option value="code-review">代码审查模板</option>
+                            </optgroup>
+                            <optgroup id="external-templates-group" label="已加载模板">
+                                <option value="custom">自定义模板</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div class="controls">
+                        <button id="generate-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                            </svg>
+                            生成提示词
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card fade-in">
+                    <div class="card-title">
+                        <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                        生成结果
+                    </div>
+                    <div class="preview" id="output-preview">生成的提示词将显示在这里...</div>
+                    <button id="copy-btn" class="button-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        复制提示词
+                    </button>
+                </div>
+            </div>
+
+            <div id="custom-template-container" class="card fade-in" style="margin-top: 2rem; display: none;">
+                <div class="card-title">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    自定义模板
+                </div>
+                <textarea id="custom-template" placeholder="在此处编写你的自定义模板..."></textarea>
+                <button id="save-template-btn" class="button-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    保存模板
+                </button>
+            </div>
+        </div>
+
+        <div id="template-manager-tab" class="tab-content">
+            <!-- 模板管理功能 -->
+            <div class="card">
+                <div class="card-title">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    模板文件管理
+                </div>
+
+                <div class="template-controls">
+                    <div class="file-input-container">
+                        <button>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            上传模板文件
+                        </button>
+                        <input type="file" class="file-input" id="template-file-input" accept=".md,.txt">
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <div id="template-files-container">
+                    <!-- 模板文件列表会动态加载到这里 -->
+                    <div class="empty-state" id="empty-templates-state">
+                        <div class="empty-state-icon">📄</div>
+                        <div class="empty-state-text">还没有上传模板文件</div>
+                        <div class="file-input-container">
+                            <button>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                上传第一个模板
+                            </button>
+                            <input type="file" class="file-input" id="empty-state-file-input" accept=".md,.txt">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            © 2025 提示词生成器 | 让提示更加高效
+        </footer>
+    </div>
+
+    <!-- 模板预览模态框 -->
+    <div class="modal-backdrop" id="template-preview-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">模板预览</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="template-list-container" class="template-list">
+                    <!-- 模板列表会动态加载到这里 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-close-btn">关闭</button>
+                <button id="use-template-btn" class="copy-success">使用选中模板</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 内置预设模板
+        const builtinTemplates = {
+            'web-design': `【要求】 = """
+分析内容，并将其转化为美观漂亮的中文可视化网页：
+
+## 内容要求
+- 所有页面内容必须为简体中文
+- 保持原文件的核心信息，但以更易读、可视化的方式呈现
+- 在页面底部添加作者信息区域，包含：
+  * 作者姓名: [作者姓名]
+  * 社交媒体链接: 至少包含GitHub、Twitter/X、LinkedIn等主流平台
+  * 版权信息和年份
+
+## 设计风格
+- 整体风格参考Linear App的简约现代设计
+- 使用清晰的视觉层次结构，突出重要内容
+- 配色方案应专业、和谐，适合长时间阅读
+
+## 技术规范
+- 使用HTML5、TailwindCSS 3.0+（通过CDN引入）和必要的JavaScript
+- 实现完整的深色/浅色模式切换功能，默认跟随系统设置
+- 代码结构清晰，包含适当注释，便于理解和维护
+
+## 响应式设计
+- 页面必须在所有设备上（手机、平板、桌面）完美展示
+- 针对不同屏幕尺寸优化布局和字体大小
+- 确保移动端有良好的触控体验
+
+## 图标与视觉元素
+- 使用专业图标库如Font Awesome或Material Icons（通过CDN引入）
+- 根据内容主题选择合适的插图或图表展示数据
+- 避免使用emoji作为主要图标
+
+## 交互体验
+- 添加适当的微交互效果提升用户体验：
+  * 按钮悬停时有轻微放大和颜色变化
+  * 卡片元素悬停时有精致的阴影和边框效果
+  * 页面滚动时有平滑过渡效果
+  * 内容区块加载时有优雅的淡入动画
+
+## 性能优化
+- 确保页面加载速度快，避免不必要的大型资源
+- 图片使用现代格式(WebP)并进行适当压缩
+- 实现懒加载技术用于长页面内容
+
+## 输出要求
+- 提供完整可运行的单一HTML文件，包含所有必要的CSS和JavaScript
+- 确保代码符合W3C标准，无错误警告
+- 页面在不同浏览器中保持一致的外观和功能
+
+请根据内容类型（文档、数据、图片等），创建最适合展示该内容的可视化网页。
+"""`,
+            'data-analysis': `【要求】 = """
+请对提供的数据进行全面的分析和可视化：
+
+## 分析要求
+- 提供数据的整体统计摘要（均值、中位数、标准差等）
+- 识别数据中的主要趋势、模式和异常值
+- 进行相关性分析，找出变量间的关系
+- 提供数据的关键洞察和业务建议
+
+## 可视化要求
+- 创建至少3种不同类型的可视化图表（折线图、柱状图、散点图等）
+- 使用恰当的配色方案，确保图表易于理解
+- 为每个图表提供清晰的标题、轴标签和图例
+- 添加简洁的解释说明每个图表展示的见解
+
+## 输出格式
+- 分析报告应包含引言、方法、结果和结论四个部分
+- 使用Markdown格式，代码块应使用三个反引号标记
+- 如有复杂计算，请提供计算过程和公式解释
+- 最后提供一个"执行摘要"，简明扼要地总结关键发现
+
+## 技术要求
+- 使用Python进行数据处理（pandas, numpy）
+- 使用matplotlib或seaborn创建可视化图表
+- 如适用，考虑使用统计测试来验证发现
+
+请基于提供的数据，创建一份专业、全面且易于理解的数据分析报告。
+"""`,
+            'content-writing': `【要求】 = """
+请根据提供的内容，创作一篇高质量的文章：
+
+## 内容要求
+- 保持原始内容的核心信息和主题
+- 扩展和丰富关键点，增加深度和广度
+- 使用简明、流畅且引人入胜的语言
+- 确保内容准确、无事实错误
+
+## 结构要求
+- 创建引人注目的标题和副标题
+- 添加引人入胜的开头段落，设定文章基调
+- 使用清晰的段落结构，每段聚焦一个核心思想
+- 包含平滑的过渡，确保内容连贯流畅
+- 提供有力的结论，总结关键点并给读者留下深刻印象
+
+## 风格要求
+- 采用[专业/轻松/学术/故事化]的语气
+- 适合[目标受众]的阅读水平和专业知识
+- 使用生动的例子、比喻和类比增强理解
+- 适当引入引人思考的问题或挑战性观点
+
+## 优化要求
+- 加入小标题、项目符号或编号列表，提高可读性
+- 确保段落和句子长度多样化，创造节奏感
+- 使用过渡词和短语连接段落和思想
+- 在适当位置加入号召性用语或下一步行动建议
+
+## 字数要求
+- 完成的文章应为[800-1200]字
+
+请创作一篇既保留原始内容精华，又具有独特视角和优质写作的文章。
+"""`,
+            'code-review': `【要求】 = """
+请对提供的代码进行全面专业的代码审查：
+
+## 基本分析
+- 识别代码的主要功能和目的
+- 分析整体代码结构和架构
+- 评估代码的可读性和可维护性
+- 检查命名约定和代码风格一致性
+
+## 技术审查
+- 识别潜在的bug和逻辑错误
+- 评估性能问题和优化机会
+- 检查异常处理和错误管理
+- 评估安全漏洞和数据验证
+- 检查资源管理（内存、连接等）
+
+## 改进建议
+- 提供具体的重构建议，并说明理由
+- 建议代码简化和优化的方法
+- 推荐设计模式或最佳实践
+- 提供改进可读性和可维护性的建议
+
+## 代码示例
+- 为关键问题提供改进后的代码片段
+- 确保提供的代码遵循相同的编码风格
+- 添加注释解释修改的原因和好处
+
+## 总结
+- 提供代码质量的整体评估
+- 列出3-5个最重要的改进建议
+- 突出代码中的亮点和良好实践
+
+请提供一份专业、建设性的代码审查，既指出问题又提供解决方案。
+"""`,
+            'custom': ''
+        };
+
+        // 生成唯一ID
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        // 应用状态
+        const appState = {
+            externalTemplates: {}, // 存储外部模板文件 {fileId: {fileName, content, templates: {title: content}}}
+            customTemplate: '', // 自定义模板内容
+            selectedTemplate: 'none', // 当前选中的模板
+            selectedTemplateFile: null, // 当前选中的模板文件ID
+            selectedTemplateTitle: null, // 当前选中的模板标题
+        };
+
+        // DOM 元素
+        const contentInput = document.getElementById('content-input');
+        const templateSelect = document.getElementById('template-select');
+        const generateBtn = document.getElementById('generate-btn');
+        const outputPreview = document.getElementById('output-preview');
+        const copyBtn = document.getElementById('copy-btn');
+        const themeToggle = document.getElementById('theme-toggle');
+        const customTemplateContainer = document.getElementById('custom-template-container');
+        const customTemplateInput = document.getElementById('custom-template');
+        const saveTemplateBtn = document.getElementById('save-template-btn');
+        const templateFileInput = document.getElementById('template-file-input');
+        const emptyStateFileInput = document.getElementById('empty-state-file-input');
+        const templatePreviewModal = document.getElementById('template-preview-modal');
+        const templateListContainer = document.getElementById('template-list-container');
+        const useTemplateBtn = document.getElementById('use-template-btn');
+        const templateFilesContainer = document.getElementById('template-files-container');
+        const emptyTemplatesState = document.getElementById('empty-templates-state');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        // 初始化深色模式
+        function initTheme() {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                themeToggle.checked = true;
+                document.body.classList.add('dark-mode');
+            }
+        }
+
+        // 切换深色/浅色模式
+        themeToggle.addEventListener('change', () => {
+            if (themeToggle.checked) {
+                document.documentElement.style.setProperty('--bg-color', '#1d1d1f');
+                document.documentElement.style.setProperty('--text-color', '#f5f5f7');
+                document.documentElement.style.setProperty('--secondary-bg', '#2c2c2e');
+                document.documentElement.style.setProperty('--border-color', '#424245');
+            } else {
+                document.documentElement.style.setProperty('--bg-color', '#ffffff');
+                document.documentElement.style.setProperty('--text-color', '#1d1d1f');
+                document.documentElement.style.setProperty('--secondary-bg', '#f5f5f7');
+                document.documentElement.style.setProperty('--border-color', '#d2d2d7');
+            }
+        });
+
+        // 显示或隐藏自定义模板区域
+        templateSelect.addEventListener('change', () => {
+            appState.selectedTemplate = templateSelect.value;
+            
+            // 重置当前选中的外部模板
+            if (!appState.selectedTemplate.includes('external-')) {
+                appState.selectedTemplateFile = null;
+                appState.selectedTemplateTitle = null;
+            }
+            
+            if (appState.selectedTemplate === 'custom') {
+                customTemplateContainer.style.display = 'block';
+                customTemplateInput.value = localStorage.getItem('customTemplate') || '';
+            } else {
+                customTemplateContainer.style.display = 'none';
+            }
+        });
+
+        // 保存自定义模板
+        saveTemplateBtn.addEventListener('click', () => {
+            const customTemplateValue = customTemplateInput.value.trim();
+            localStorage.setItem('customTemplate', customTemplateValue);
+            appState.customTemplate = customTemplateValue;
+            
+            // 显示保存成功的反馈
+            saveTemplateBtn.textContent = '已保存!';
+            saveTemplateBtn.classList.add('copy-success');
+            setTimeout(() => {
+                saveTemplateBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                    <polyline points="7 3 7 8 15 8"></polyline>
+                </svg> 保存模板`;
+                saveTemplateBtn.classList.remove('copy-success');
+            }, 2000);
+        });
+
+        // 生成提示词
+        generateBtn.addEventListener('click', function() {
+            console.log("生成按钮被点击"); // 调试信息
+            const content = contentInput.value.trim();
+            if (!content) {
+                alert('请先输入内容!');
+                return;
+            }
+
+            let templateText = '';
+            
+            // 获取选择的模板内容
+            if (appState.selectedTemplate === 'none') {
+                alert('请先选择一个模板!');
+                return;
+            } else if (appState.selectedTemplate === 'custom') {
+                templateText = customTemplateInput.value.trim();
+                if (!templateText) {
+                    alert('请先编写自定义模板!');
+                    return;
+                }
+            } else if (appState.selectedTemplate.startsWith('external-')) {
+                // 外部模板文件
+                const parts = appState.selectedTemplate.split('-');
+                const fileId = parts[1];
+                const titleIndex = parseInt(parts[2]);
+                
+                if (!appState.externalTemplates[fileId]) {
+                    alert('无法找到选定的模板文件!');
+                    return;
+                }
+                
+                const templateTitles = Object.keys(appState.externalTemplates[fileId].templates);
+                if (titleIndex >= templateTitles.length) {
+                    alert('无法找到选定的模板!');
+                    return;
+                }
+                
+                const title = templateTitles[titleIndex];
+                templateText = appState.externalTemplates[fileId].templates[title];
+                
+                if (!templateText) {
+                    alert('模板内容为空!');
+                    return;
+                }
+            } else {
+                // 内置模板
+                templateText = builtinTemplates[appState.selectedTemplate];
+                if (!templateText) {
+                    alert('模板内容为空!');
+                    return;
+                }
+            }
+
+            const promptText = `【内容】 = """
+${content}
+"""
+
+${templateText}`;
+
+            // 直接使用innerText而不是innerHTML，避免HTML解析问题
+            outputPreview.innerText = promptText;
+            
+            // 动画效果
+            outputPreview.classList.remove('fade-in');
+            void outputPreview.offsetWidth; // 触发重绘
+            outputPreview.classList.add('fade-in');
+        });
+
+        // 复制提示词
+        copyBtn.addEventListener('click', () => {
+            // 获取文本内容，处理HTML标签情况
+            const outputText = outputPreview.innerText || outputPreview.textContent;
+            
+            if (outputText === '生成的提示词将显示在这里...') {
+                alert('请先生成提示词!');
+                return;
+            }
+            
+            navigator.clipboard.writeText(outputText).then(() => {
+                // 复制成功反馈
+                copyBtn.textContent = '已复制!';
+                copyBtn.classList.add('copy-success');
+                setTimeout(() => {
+                    copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg> 复制提示词`;
+                    copyBtn.classList.remove('copy-success');
+                }, 2000);
+            }).catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败，请手动复制');
+            });
+        });
+
+        // 加载外部模板文件
+        function loadTemplateFile(file) {
+            return new Promise((resolve, reject) => {
+                if (!file) {
+                    reject('没有选择文件');
+                    return;
+                }
+                
+                if (file.type !== 'text/markdown' && file.type !== 'text/plain' && !file.name.endsWith('.md') && !file.name.endsWith('.txt')) {
+                    reject('请上传Markdown(.md)或文本(.txt)文件');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const content = e.target.result;
+                        const templates = parseMarkdownTemplates(content);
+                        
+                        if (Object.keys(templates).length === 0) {
+                            reject('无法在文件中找到有效的模板（一级标题）');
+                            return;
+                        }
+                        
+                        const fileId = generateUUID();
+                        
+                        // 存储模板文件信息
+                        appState.externalTemplates[fileId] = {
+                            fileName: file.name,
+                            content: content,
+                            templates: templates,
+                            timestamp: new Date().toISOString()
+                        };
+                        
+                        // 持久化存储
+                        saveExternalTemplates();
+                        
+                        resolve({
+                            fileId,
+                            fileName: file.name,
+                            templates: templates
+                        });
+                    } catch (error) {
+                        reject(`解析模板文件时出错: ${error.message}`);
+                    }
+                };
+                
+                reader.onerror = function() {
+                    reject('读取文件时出错');
+                };
+                
+                reader.readAsText(file);
+            });
+        }
+
+        // 解析Markdown文件中的模板
+        function parseMarkdownTemplates(markdown) {
+            const templates = {};
+            let currentTitle = null;
+            let currentContent = [];
+            
+            // 按行分割
+            const lines = markdown.split(/\r?\n/);
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                
+                // 检测一级标题 (# 标题)
+                if (line.match(/^# /)) {
+                    // 如果已经有正在处理的标题，保存之前的结果
+                    if (currentTitle) {
+                        templates[currentTitle] = currentContent.join('\n');
+                        currentContent = [];
+                    }
+                    
+                    // 提取新标题 (去掉 # 和空格)
+                    currentTitle = line.substring(2).trim();
+                } else if (currentTitle) {
+                    // 如果有当前标题，将该行添加到内容中
+                    currentContent.push(line);
+                }
+            }
+            
+            // 处理最后一个标题的内容
+            if (currentTitle && currentContent.length > 0) {
+                templates[currentTitle] = currentContent.join('\n');
+            }
+            
+            return templates;
+        }
+
+        // 保存外部模板到本地存储
+        function saveExternalTemplates() {
+            localStorage.setItem('externalTemplates', JSON.stringify(appState.externalTemplates));
+        }
+
+        // 从本地存储加载外部模板
+        function loadExternalTemplatesFromStorage() {
+            const saved = localStorage.getItem('externalTemplates');
+            if (saved) {
+                try {
+                    appState.externalTemplates = JSON.parse(saved);
+                    updateTemplateFilesList();
+                    updateExternalTemplatesDropdown();
+                } catch (error) {
+                    console.error('加载外部模板失败:', error);
+                }
+            }
+        }
+
+        // 更新模板文件列表
+        function updateTemplateFilesList() {
+            const files = Object.keys(appState.externalTemplates);
+            
+            if (files.length === 0) {
+                emptyTemplatesState.style.display = 'block';
+                return;
+            }
+            
+            emptyTemplatesState.style.display = 'none';
+            
+            // 清空容器
+            templateFilesContainer.innerHTML = '';
+            
+            // 添加每个模板文件
+            files.forEach(fileId => {
+                const file = appState.externalTemplates[fileId];
+                const templateCount = Object.keys(file.templates).length;
+                
+                // 创建文件卡片
+                const fileCard = document.createElement('div');
+                fileCard.className = 'template-file-card';
+                fileCard.innerHTML = `
+                    <div class="template-file-info">
+                        <div class="template-file-name">${file.fileName}</div>
+                        <div class="template-file-meta">
+                            包含 ${templateCount} 个模板 · 
+                            上传于 ${new Date(file.timestamp).toLocaleString()}
+                        </div>
+                    </div>
+                    <div class="template-file-actions">
+                        <button class="preview-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            预览
+                        </button>
+                        <button class="delete-btn danger-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                            删除
+                        </button>
+                    </div>
+                `;
+                
+                // 预览按钮点击事件
+                fileCard.querySelector('.preview-btn').addEventListener('click', () => {
+                    showTemplatePreviewModal(fileId);
+                });
+                
+                // 删除按钮点击事件
+                fileCard.querySelector('.delete-btn').addEventListener('click', () => {
+                    if (confirm(`确定要删除模板文件 "${file.fileName}" 吗？`)) {
+                        delete appState.externalTemplates[fileId];
+                        saveExternalTemplates();
+                        updateTemplateFilesList();
+                        updateExternalTemplatesDropdown();
+                    }
+                });
+                
+                templateFilesContainer.appendChild(fileCard);
+            });
+        }
+
+        // 更新外部模板下拉菜单
+        function updateExternalTemplatesDropdown() {
+            // 清空外部模板组
+            const externalGroup = document.getElementById('external-templates-group');
+            
+            // 保留自定义模板选项
+            const customOption = externalGroup.querySelector('option[value="custom"]');
+            externalGroup.innerHTML = '';
+            if (customOption) {
+                externalGroup.appendChild(customOption);
+            }
+            
+            // 添加外部模板选项
+            for (const fileId in appState.externalTemplates) {
+                const file = appState.externalTemplates[fileId];
+                const templateTitles = Object.keys(file.templates);
+                
+                // 为每个模板创建选项
+                templateTitles.forEach((title, index) => {
+                    const option = document.createElement('option');
+                    option.value = `external-${fileId}-${index}`;
+                    option.textContent = `${title} (${file.fileName})`;
+                    externalGroup.appendChild(option);
+                });
+            }
+        }
+
+        // 显示模板预览模态框
+        function showTemplatePreviewModal(fileId) {
+            if (!appState.externalTemplates[fileId]) {
+                alert('无法找到模板文件');
+                return;
+            }
+            
+            const file = appState.externalTemplates[fileId];
+            const templates = file.templates;
+            const templateTitles = Object.keys(templates);
+            
+            // 更新模态框标题
+            document.querySelector('.modal-title').textContent = `模板预览: ${file.fileName}`;
+            
+            // 清空模板列表
+            templateListContainer.innerHTML = '';
+            
+            // 添加模板项
+            templateTitles.forEach((title, index) => {
+                const templateItem = document.createElement('div');
+                templateItem.className = 'template-item';
+                templateItem.setAttribute('data-index', index);
+                templateItem.textContent = title;
+                
+                // 点击选择模板
+                templateItem.addEventListener('click', () => {
+                    document.querySelectorAll('.template-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    templateItem.classList.add('active');
+                    
+                    // 存储所选模板
+                    appState.selectedTemplateFile = fileId;
+                    appState.selectedTemplateTitle = title;
+                });
+                
+                templateListContainer.appendChild(templateItem);
+            });
+            
+            // 使用选中模板
+            useTemplateBtn.onclick = () => {
+                if (!appState.selectedTemplateFile || !appState.selectedTemplateTitle) {
+                    alert('请先选择一个模板');
+                    return;
+                }
+                
+                const selectedIndex = templateTitles.indexOf(appState.selectedTemplateTitle);
+                if (selectedIndex === -1) {
+                    alert('无法找到所选模板');
+                    return;
+                }
+                
+                // 更新下拉菜单选择
+                const optionValue = `external-${fileId}-${selectedIndex}`;
+                templateSelect.value = optionValue;
+                appState.selectedTemplate = optionValue;
+                
+                // 关闭模态框
+                closeModal();
+            };
+            
+            // 显示模态框
+            templatePreviewModal.classList.add('show');
+            
+            // 默认选中第一个模板
+            if (templateTitles.length > 0) {
+                const firstItem = templateListContainer.querySelector('.template-item');
+                if (firstItem) {
+                    firstItem.click();
+                }
+            }
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            templatePreviewModal.classList.remove('show');
+        }
+
+        // 自动调整文本区域高度
+        function autoAdjustHeight(element) {
+            element.style.height = 'auto';
+            element.style.height = element.scrollHeight + 'px';
+        }
+
+        contentInput.addEventListener('input', () => {
+            autoAdjustHeight(contentInput);
+        });
+
+        customTemplateInput.addEventListener('input', () => {
+            autoAdjustHeight(customTemplateInput);
+        });
+
+        // 文件上传事件
+        templateFileInput.addEventListener('change', (event) => {
+            if (event.target.files.length > 0) {
+                const file = event.target.files[0];
+                
+                loadTemplateFile(file)
+                    .then(result => {
+                        alert(`成功加载模板文件 "${result.fileName}"，包含 ${Object.keys(result.templates).length} 个模板。`);
+                        updateTemplateFilesList();
+                        updateExternalTemplatesDropdown();
+                    })
+                    .catch(error => {
+                        alert(`加载模板文件失败: ${error}`);
+                    });
+            }
+        });
+
+        // 空状态文件上传事件
+        emptyStateFileInput.addEventListener('change', (event) => {
+            if (event.target.files.length > 0) {
+                const file = event.target.files[0];
+                
+                loadTemplateFile(file)
+                    .then(result => {
+                        alert(`成功加载模板文件 "${result.fileName}"，包含 ${Object.keys(result.templates).length} 个模板。`);
+                        updateTemplateFilesList();
+                        updateExternalTemplatesDropdown();
+                    })
+                    .catch(error => {
+                        alert(`加载模板文件失败: ${error}`);
+                    });
+            }
+        });
+
+        // 模态框关闭按钮事件
+        document.querySelectorAll('.modal-close, .modal-close-btn').forEach(btn => {
+            btn.addEventListener('click', closeModal);
+        });
+
+        // 选项卡切换
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.getAttribute('data-tab');
+                
+                // 更新标签状态
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // 更新内容显示
+                tabContents.forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(`${tabId}-tab`).classList.add('active');
+            });
+        });
+
+        // 从本地存储加载自定义模板
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM加载完成");
+            // 加载自定义模板
+            const savedCustomTemplate = localStorage.getItem('customTemplate');
+            if (savedCustomTemplate) {
+                appState.customTemplate = savedCustomTemplate;
+            }
+            
+            // 加载外部模板
+            loadExternalTemplatesFromStorage();
+            
+            // 初始化主题
+            initTheme();
+        });
+    </script>
+</body>
+</html>
